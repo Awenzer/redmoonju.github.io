@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚙ ADMIN ⚙</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pink:#f472b6; --blue:#818cf8; --indigo:#4f46e5;
+  --purple:#c084fc; --cyan:#67e8f9;
+  --bg1:#fba7d0; --bg2:#c4b5fd; --bg3:#a5b4fc; --bg4:#7dd3fc;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Nunito',sans-serif;
+  min-height:100vh; overflow-x:hidden;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3),var(--bg4),var(--bg1));
+  background-size:400% 400%;
+  animation:bgshift 10s ease infinite;
+}
+@keyframes bgshift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+.grid-overlay{
+  position:fixed;inset:0;z-index:0;opacity:.18;
+  background-image:linear-gradient(rgba(255,255,255,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.7) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gwarp 7s ease-in-out infinite alternate;
+  transform-origin:center;
+}
+@keyframes gwarp{from{transform:perspective(600px) rotateX(4deg)}to{transform:perspective(600px) rotateX(7deg)}}
+
+/* ===== LOGIN ===== */
+#login-screen{
+  position:fixed;inset:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;padding:2rem;
+}
+.login-box{
+  background:rgba(255,255,255,.28);backdrop-filter:blur(28px);
+  border:3px solid rgba(255,255,255,.75);
+  padding:3rem 2.5rem;max-width:400px;width:100%;text-align:center;
+  box-shadow:8px 8px 0 rgba(79,70,229,.3);
+  clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));
+  position:relative;overflow:hidden;
+}
+.login-box::before{content:'';position:absolute;top:-50%;left:-60%;width:40%;height:200%;background:linear-gradient(to right,transparent,rgba(255,255,255,.4),transparent);transform:rotate(30deg);animation:lshine 3.5s ease-in-out infinite;}
+@keyframes lshine{0%{left:-60%}60%,100%{left:130%}}
+
+.login-tag{
+  display:inline-block;
+  background:var(--indigo);color:white;
+  font-family:'Press Start 2P',monospace;font-size:.5rem;
+  padding:.3rem .8rem;letter-spacing:2px;
+  margin-bottom:1.2rem;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.login-title{font-family:'Press Start 2P',monospace;font-size:.9rem;color:white;text-shadow:3px 3px 0 var(--indigo);margin-bottom:.3rem;line-height:1.7;}
+.login-sub{font-size:.82rem;font-weight:700;color:rgba(79,70,229,.7);margin-bottom:1.5rem;}
+
+.f-input{
+  width:100%;padding:.85rem 1.2rem;
+  background:rgba(255,255,255,.55);border:2.5px solid var(--indigo);
+  color:var(--indigo);font-family:'Press Start 2P',monospace;font-size:.6rem;
+  text-align:center;letter-spacing:4px;outline:none;
+  margin-bottom:1rem;transition:all .2s;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.f-input:focus{background:rgba(255,255,255,.85);box-shadow:4px 4px 0 var(--indigo);}
+.f-input::placeholder{opacity:.35;letter-spacing:2px;}
+
+.big-btn{
+  width:100%;padding:.9rem;
+  background:var(--indigo);border:2.5px solid var(--indigo);color:white;
+  font-family:'Press Start 2P',monospace;font-size:.58rem;cursor:pointer;letter-spacing:2px;
+  transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+  position:relative;overflow:hidden;
+}
+.big-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.18) 0%,transparent 50%);}
+.big-btn:hover{background:var(--blue);transform:translate(-2px,-2px);box-shadow:4px 4px 0 rgba(79,70,229,.5);}
+.big-btn:active{transform:translate(1px,1px);box-shadow:none;}
+
+.login-err{font-family:'Press Start 2P',monospace;font-size:.48rem;color:#be123c;margin-top:.75rem;min-height:1.2rem;line-height:1.8;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ===== MAIN ADMIN ===== */
+#admin-main{display:none;position:relative;z-index:1;min-height:100vh;padding:2rem 1.5rem 4rem;}
+
+.admin-header{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1rem;
+  margin-bottom:2.5rem;
+}
+.admin-logo{
+  font-family:'Press Start 2P',monospace;font-size:.85rem;
+  color:white;text-shadow:3px 3px 0 var(--indigo);line-height:1.7;
+}
+.admin-sub{font-size:.78rem;font-weight:700;color:rgba(79,70,229,.7);margin-top:.2rem;}
+.signout-btn{
+  background:rgba(255,255,255,.35);border:2.5px solid rgba(255,255,255,.7);
+  font-family:'Press Start 2P',monospace;font-size:.45rem;color:var(--indigo);
+  padding:.45rem .9rem;cursor:pointer;letter-spacing:1px;
+  transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.signout-btn:hover{background:rgba(255,255,255,.6);}
+
+/* Tabs */
+.tabs{display:flex;gap:.4rem;margin-bottom:2rem;flex-wrap:wrap;}
+.tab{
+  padding:.5rem 1.2rem;
+  background:rgba(255,255,255,.25);border:2px solid rgba(255,255,255,.55);
+  font-family:'Press Start 2P',monospace;font-size:.5rem;color:var(--indigo);
+  cursor:pointer;letter-spacing:1px;transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.tab:hover{background:rgba(255,255,255,.45);}
+.tab.active{background:var(--indigo);color:white;border-color:var(--indigo);box-shadow:2px 2px 0 rgba(255,255,255,.3) inset;}
+
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* ===== PANEL ===== */
+.panel{
+  background:rgba(255,255,255,.22);backdrop-filter:blur(20px);
+  border:2.5px solid rgba(255,255,255,.6);
+  padding:1.5rem;margin-bottom:1.5rem;
+  box-shadow:5px 5px 0 rgba(79,70,229,.2);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+}
+.panel-title{
+  font-family:'Press Start 2P',monospace;font-size:.6rem;
+  color:white;text-shadow:2px 2px 0 var(--indigo);
+  margin-bottom:1rem;line-height:1.7;letter-spacing:1px;
+}
+
+/* ===== VIDEO ADMIN GRID ===== */
+.vadmin-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+  gap:.65rem;
+}
+.va-card{
+  aspect-ratio:1;
+  background:rgba(255,255,255,.25);
+  border:2.5px solid rgba(255,255,255,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:.5rem;text-align:center;cursor:pointer;
+  transition:all .15s;position:relative;overflow:hidden;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.va-card.filled{background:rgba(255,255,255,.38);border-color:rgba(255,255,255,.8);box-shadow:3px 3px 0 rgba(79,70,229,.25);}
+.va-card:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 rgba(79,70,229,.3);}
+.va-card:active{transform:translate(1px,1px);box-shadow:none;}
+.va-num{font-family:'Press Start 2P',monospace;font-size:.65rem;color:var(--indigo);}
+.va-emoji{font-size:1.2rem;}
+.va-status{font-family:'Press Start 2P',monospace;font-size:.38rem;color:rgba(79,70,229,.55);letter-spacing:.5px;}
+.va-card.filled .va-status{color:var(--indigo);}
+.va-dot{position:absolute;top:5px;right:5px;width:8px;height:8px;background:var(--indigo);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);}
+
+/* Search/filter bar */
+.filter-row{
+  display:flex;gap:.5rem;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;
+}
+.search-input{
+  flex:1;min-width:120px;padding:.6rem 1rem;
+  background:rgba(255,255,255,.45);border:2px solid rgba(255,255,255,.6);
+  color:var(--indigo);font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:700;
+  outline:none;transition:all .2s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.search-input:focus{background:rgba(255,255,255,.7);box-shadow:3px 3px 0 rgba(79,70,229,.25);}
+.search-input::placeholder{opacity:.5;}
+.filter-btn{
+  padding:.55rem 1rem;
+  background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.6);
+  font-family:'Press Start 2P',monospace;font-size:.42rem;color:var(--indigo);
+  cursor:pointer;white-space:nowrap;transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.filter-btn.on{background:var(--indigo);color:white;}
+.filter-btn:hover{background:rgba(255,255,255,.55);}
+
+/* ===== VIDEO EDIT MODAL ===== */
+.vedit-overlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(79,70,229,.35);backdrop-filter:blur(12px);
+  align-items:center;justify-content:center;padding:1rem;
+}
+.vedit-overlay.open{display:flex;}
+.vedit-box{
+  width:100%;max-width:560px;
+  background:rgba(255,255,255,.3);backdrop-filter:blur(30px);
+  border:3px solid rgba(255,255,255,.75);
+  padding:2rem;position:relative;
+  box-shadow:8px 8px 0 rgba(79,70,229,.3);
+  animation:popin .3s cubic-bezier(.34,1.56,.64,1);
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+@keyframes popin{from{transform:scale(.75) rotate(-2deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.vedit-close{
+  position:absolute;top:1rem;right:1rem;
+  background:rgba(255,255,255,.5);border:2px solid rgba(79,70,229,.4);
+  width:34px;height:34px;font-family:'Press Start 2P',monospace;font-size:.48rem;
+  color:var(--indigo);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,5px 100%,0 calc(100% - 5px));
+}
+.vedit-close:hover{background:white;box-shadow:2px 2px 0 rgba(79,70,229,.3);}
+.vedit-title{font-family:'Press Start 2P',monospace;font-size:.7rem;color:white;text-shadow:2px 2px 0 var(--indigo);margin-bottom:1.5rem;padding-right:2.5rem;line-height:1.7;}
+
+.field-label{font-family:'Press Start 2P',monospace;font-size:.45rem;color:var(--indigo);display:block;margin-bottom:.4rem;letter-spacing:1px;text-transform:uppercase;}
+.field-input{
+  width:100%;padding:.75rem 1rem;
+  background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.7);
+  color:var(--indigo);font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;
+  outline:none;margin-bottom:1rem;transition:all .2s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.field-input:focus{background:rgba(255,255,255,.85);box-shadow:3px 3px 0 rgba(79,70,229,.3);}
+.field-input::placeholder{opacity:.38;font-size:.8rem;}
+
+.hint-box{
+  background:rgba(255,255,255,.35);border:2px solid rgba(255,255,255,.55);
+  padding:.75rem 1rem;margin-bottom:1.2rem;
+  font-size:.78rem;font-weight:700;color:rgba(79,70,229,.7);line-height:1.6;
+}
+.hint-box strong{color:var(--indigo);}
+
+.preview-thumb{
+  width:100%;padding-bottom:56.25%;position:relative;
+  background:rgba(79,70,229,.1);border:2px solid rgba(255,255,255,.55);
+  margin-bottom:1rem;overflow:hidden;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+}
+.preview-thumb iframe,.preview-thumb video{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
+.preview-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:.5rem;color:rgba(79,70,229,.4);}
+
+.btn-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;}
+.sm-btn{
+  padding:.55rem 1.2rem;
+  background:var(--indigo);border:2px solid var(--indigo);color:white;
+  font-family:'Press Start 2P',monospace;font-size:.48rem;cursor:pointer;letter-spacing:1px;
+  transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.sm-btn:hover{background:var(--blue);transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(79,70,229,.4);}
+.sm-btn.danger{background:rgba(255,255,255,.35);color:#be123c;border-color:rgba(190,18,60,.3);}
+.sm-btn.danger:hover{background:rgba(255,255,255,.6);}
+
+.save-toast{
+  position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);
+  background:var(--indigo);color:white;
+  font-family:'Press Start 2P',monospace;font-size:.5rem;padding:.7rem 1.5rem;
+  letter-spacing:1.5px;z-index:400;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+  box-shadow:4px 4px 0 rgba(255,255,255,.3);
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+.save-toast.show{opacity:1;}
+
+/* ===== MUSIC ADMIN ===== */
+.music-upload-zone{
+  border:3px dashed rgba(255,255,255,.6);
+  background:rgba(255,255,255,.18);
+  padding:2.5rem;text-align:center;cursor:pointer;
+  transition:all .2s;margin-bottom:1.5rem;
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+}
+.music-upload-zone:hover{background:rgba(255,255,255,.32);border-color:rgba(255,255,255,.9);}
+.music-upload-zone p{font-family:'Press Start 2P',monospace;font-size:.55rem;color:white;text-shadow:1px 1px 0 var(--indigo);line-height:2;letter-spacing:1px;}
+.music-upload-zone span{font-size:2.5rem;display:block;margin-bottom:.75rem;}
+
+.m-item{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.65rem .8rem;
+  background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.4);
+  margin-bottom:.5rem;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.m-num{font-family:'Press Start 2P',monospace;font-size:.45rem;color:rgba(79,70,229,.5);width:24px;text-align:center;flex-shrink:0;}
+.m-info{flex:1;min-width:0;}
+.m-name{font-weight:800;font-size:.9rem;color:var(--indigo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.m-file{font-size:.72rem;font-weight:600;color:rgba(79,70,229,.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.m-del{
+  background:rgba(255,255,255,.35);border:1.5px solid rgba(190,18,60,.3);
+  color:#be123c;font-family:'Press Start 2P',monospace;font-size:.4rem;
+  padding:.3rem .6rem;cursor:pointer;letter-spacing:.5px;transition:all .15s;
+  clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));
+  flex-shrink:0;
+}
+.m-del:hover{background:rgba(255,255,255,.6);}
+.m-move{
+  background:rgba(255,255,255,.25);border:1.5px solid rgba(79,70,229,.3);
+  color:var(--indigo);font-size:.75rem;
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;flex-shrink:0;
+  clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));
+}
+.m-move:hover{background:rgba(255,255,255,.55);}
+
+.stats-row{
+  display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1.5rem;
+}
+.stat-chip{
+  background:rgba(255,255,255,.3);border:2px solid rgba(255,255,255,.6);
+  padding:.4rem .9rem;
+  font-family:'Press Start 2P',monospace;font-size:.45rem;color:var(--indigo);
+  letter-spacing:.5px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+
+@media(max-width:500px){.vadmin-grid{grid-template-columns:repeat(auto-fill,minmax(85px,1fr))} .vedit-box{padding:1.5rem}}
+
+/* ===== WEEK LOCKS ===== */
+.week-locks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+.wlock-card {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(255,255,255,0.22);
+  border: 2.5px solid rgba(255,255,255,0.5);
+  padding: 0.8rem 1rem;
+  clip-path: polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));
+  transition: all .2s;
+}
+.wlock-card.unlocked {
+  background: rgba(255,255,255,0.38);
+  border-color: rgba(255,255,255,0.8);
+  box-shadow: 3px 3px 0 rgba(79,70,229,.2);
+}
+.wlock-info { flex: 1; min-width: 0; }
+.wlock-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: .48rem; color: white;
+  text-shadow: 1px 1px 0 var(--indigo);
+  letter-spacing: .5px; line-height: 1.7;
+}
+.wlock-days {
+  font-size: .72rem; font-weight: 700;
+  color: rgba(79,70,229,.55); margin-top: .2rem;
+}
+.wlock-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+/* Toggle switch */
+.toggle-wrap { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.toggle-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: .38rem; color: rgba(79,70,229,.6);
+  white-space: nowrap;
+}
+.toggle {
+  position: relative; width: 44px; height: 24px;
+  display: inline-block; flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.35);
+  border: 2px solid rgba(255,255,255,.6);
+  cursor: pointer; transition: all .25s;
+  clip-path: polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute; left: 2px; bottom: 2px;
+  width: 16px; height: 16px;
+  background: rgba(79,70,229,.45);
+  transition: all .25s;
+  clip-path: polygon(0 0,calc(100% - 3px) 0,100% 3px,100% 100%,3px 100%,0 calc(100% - 3px));
+}
+.toggle input:checked + .toggle-slider {
+  background: var(--indigo);
+  border-color: var(--indigo);
+}
+.toggle input:checked + .toggle-slider::before {
+  background: white;
+  transform: translateX(20px);
+}
+
+.bulk-row {
+  display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.bulk-btn {
+  padding: .45rem 1rem;
+  background: rgba(255,255,255,.3); border: 2px solid rgba(255,255,255,.6);
+  font-family: 'Press Start 2P', monospace; font-size: .4rem; color: var(--indigo);
+  cursor: pointer; transition: all .15s;
+  clip-path: polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px));
+}
+.bulk-btn:hover { background: rgba(255,255,255,.55); }
+</style>
+</head>
+<body>
+
+<div class="grid-overlay"></div>
+
+<!-- ===== LOGIN ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-tag">⚙ ADMIN</div>
+    <p class="login-title">ACCÈS ADMIN</p>
+    <p class="login-sub">Espace de gestion privé</p>
+    <input type="password" id="adm-pw" class="f-input" placeholder="••••••••" autocomplete="off"/>
+    <button class="big-btn" onclick="adminLogin()">► CONNEXION</button>
+    <p id="adm-err" class="login-err"></p>
+  </div>
+</div>
+
+<!-- ===== ADMIN MAIN ===== -->
+<div id="admin-main">
+  <div class="admin-header">
+    <div>
+      <p class="admin-logo">⚙ ADMIN PANEL</p>
+      <p class="admin-sub">Gère les vidéos et la musique du site</p>
+    </div>
+    <button class="signout-btn" onclick="signOut()">✕ DÉCONNEXION</button>
+  </div>
+
+  <div class="stats-row" id="stats-row"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('videos',this)">🎬 VIDÉOS</button>
+    <button class="tab" onclick="switchTab('music',this)">🎵 MUSIQUE</button>
+    <button class="tab" onclick="switchTab('weeks',this)">🔒 SEMAINES</button>
+  </div>
+
+  <!-- TAB VIDEOS -->
+  <div id="tab-videos" class="tab-content active">
+    <div class="panel">
+      <p class="panel-title">GESTION DES 86 VIDÉOS</p>
+      <div class="filter-row">
+        <input type="text" id="search-input" class="search-input" placeholder="Chercher un jour..." oninput="filterGrid()" />
+        <button class="filter-btn" id="fbtn-all" onclick="setFilter('all')" >TOUS</button>
+        <button class="filter-btn on" id="fbtn-empty" onclick="setFilter('empty')">VIDES</button>
+        <button class="filter-btn" id="fbtn-filled" onclick="setFilter('filled')">REMPLIS</button>
+      </div>
+      <div class="vadmin-grid" id="vadmin-grid"></div>
+    </div>
+  </div>
+
+  <!-- TAB WEEKS -->
+  <div id="tab-weeks" class="tab-content">
+    <div class="panel">
+      <p class="panel-title">🔒 VERROUILLAGE DES SEMAINES</p>
+      <p style="font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:700;color:rgba(79,70,229,.7);margin-bottom:1rem;line-height:1.6;">
+        Active ou désactive l'accès à chaque semaine sur le site. Les semaines verrouillées affichent un cadenas et ne sont pas cliquables.
+      </p>
+      <div class="bulk-row">
+        <button class="bulk-btn" onclick="lockAll()">🔒 TOUT VERROUILLER</button>
+        <button class="bulk-btn" onclick="unlockAll()">🔓 TOUT DÉVERROUILLER</button>
+      </div>
+      <div class="week-locks-grid" id="week-locks-grid"></div>
+    </div>
+  </div>
+
+  <!-- TAB MUSIC -->
+  <div id="tab-music" class="tab-content">
+    <div class="panel">
+      <p class="panel-title">IMPORTER DES MUSIQUES</p>
+      <div class="music-upload-zone" onclick="document.getElementById('music-input').click()">
+        <span>🎵</span>
+        <p>CLIQUE POUR IMPORTER<br>TES FICHIERS AUDIO</p>
+        <p style="font-size:.38rem;opacity:.6;margin-top:.4rem;">MP3 · WAV · OGG · FLAC · M4A</p>
+      </div>
+      <input type="file" id="music-input" style="display:none" accept="audio/*" multiple onchange="importMusic(this)"/>
+    </div>
+    <div class="panel">
+      <p class="panel-title">TRACKLIST ACTUELLE</p>
+      <div id="music-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VIDEO EDIT MODAL ===== -->
+<div id="vedit" class="vedit-overlay">
+  <div class="vedit-box">
+    <button class="vedit-close" onclick="closeVEdit()">✕</button>
+    <p class="vedit-title" id="vedit-title">JOUR 01 ✦</p>
+    <label class="field-label">LIEN GOOGLE DRIVE</label>
+    <input type="text" id="vedit-url" class="field-input" placeholder="https://drive.google.com/file/d/..." />
+    <div class="hint-box">
+      📌 Sur Google Drive : <strong>clic droit → Partager → Toute personne avec le lien</strong> puis colle le lien ici.
+    </div>
+    <div class="preview-thumb" id="vedit-preview">
+      <div class="preview-ph">APERÇU</div>
+    </div>
+    <div class="btn-row">
+      <button class="sm-btn" onclick="previewVideo()">▶ APERÇU</button>
+      <button class="sm-btn" onclick="saveVideo()">💾 ENREGISTRER</button>
+      <button class="sm-btn danger" onclick="deleteVideo()">✕ SUPPRIMER</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="save-toast" id="toast">✦ SAUVEGARDÉ ✦</div>
+
+<script>
+/* ===== CONFIG ===== */
+const ADMIN_PW = "julieanneawenzer291224";
+
+const EMOJIS = ["🌸","🗼","⛩️","🍜","🌺","🎌","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","⛩️","🍱","🌺","🎌","💖","🗾","🌙","🍡","🦊","🌊","🌸","🗼","🎌","🍜","🌺","⛩️","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","🌸","🗾","⛩️","🍜","🌺","🎌","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","⛩️","🍱","🌺","🎌","💖","🗾","🌙","🍡","🦊","🌊","🌸","🗼","⛩️","🍜","🌺","🎌","🌙","💫","🦊"];
+
+/* ===== STORAGE ===== */
+const vKey  = d => 'v2-url-' + d;
+const mKey  = i => 'music-' + i;
+const mCount = () => parseInt(localStorage.getItem('music-count')||'0');
+const setCount = n => localStorage.setItem('music-count', n);
+
+/* ===== LOGIN ===== */
+function adminLogin(){
+  const v = document.getElementById('adm-pw').value.trim();
+  const e = document.getElementById('adm-err');
+  if(v === ADMIN_PW){
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-main').style.display = 'block';
+    buildVAdmin();
+    buildMusicList();
+    buildWeekLocks();
+    updateStats();
+  } else {
+    e.textContent = '✕ MOT DE PASSE INCORRECT';
+    e.style.animation = 'none';
+    setTimeout(()=> e.style.animation='shake .4s ease',10);
+    document.getElementById('adm-pw').select();
+  }
+}
+document.getElementById('adm-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') adminLogin(); });
+
+function signOut(){
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-main').style.display = 'none';
+  document.getElementById('adm-pw').value = '';
+}
+
+/* ===== TABS ===== */
+function switchTab(id, btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id === 'weeks') buildWeekLocks();
+}
+
+/* ===== STATS ===== */
+function updateStats(){
+  let filled = 0;
+  for(let d=1;d<=86;d++) if(localStorage.getItem(vKey(d))) filled++;
+  const n = mCount();
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-chip">🎬 VIDÉOS : ${filled}/86</div>
+    <div class="stat-chip">🎵 MUSIQUES : ${n}</div>
+    <div class="stat-chip">📊 ${Math.round(filled/86*100)}% COMPLET</div>
+  `;
+}
+
+/* ===== VIDEO ADMIN GRID ===== */
+let vFilter = 'empty';
+let vSearch = '';
+
+function setFilter(f){
+  vFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('fbtn-'+f).classList.add('on');
+  buildVAdmin();
+}
+function filterGrid(){ vSearch = document.getElementById('search-input').value.trim(); buildVAdmin(); }
+
+function buildVAdmin(){
+  const g = document.getElementById('vadmin-grid');
+  g.innerHTML = '';
+  for(let d=1;d<=86;d++){
+    const url = localStorage.getItem(vKey(d))||'';
+    const filled = !!url;
+    const emoji = EMOJIS[d-1]||'🌸';
+    const label = String(d).padStart(2,'0');
+    if(vSearch && !label.includes(vSearch) && !String(d).includes(vSearch)) continue;
+    if(vFilter==='empty' && filled) continue;
+    if(vFilter==='filled' && !filled) continue;
+    const card = document.createElement('div');
+    card.className = 'va-card' + (filled?' filled':'');
+    card.innerHTML = `
+      <span class="va-emoji">${filled?emoji:'➕'}</span>
+      <span class="va-num">${label}</span>
+      <span class="va-status">${filled?'OK':'VIDE'}</span>
+      ${filled?'<span class="va-dot"></span>':''}
+    `;
+    card.onclick = ()=> openVEdit(d);
+    g.appendChild(card);
+  }
+}
+
+/* ===== VIDEO EDIT ===== */
+let editingDay = null;
+
+function openVEdit(d){
+  editingDay = d;
+  const emoji = EMOJIS[d-1]||'🌸';
+  const url = localStorage.getItem(vKey(d))||'';
+  document.getElementById('vedit-title').textContent = emoji+' JOUR '+String(d).padStart(2,'0')+' ✦';
+  document.getElementById('vedit-url').value = url;
+  document.getElementById('vedit-preview').innerHTML = '<div class="preview-ph">APERÇU</div>';
+  document.getElementById('vedit').classList.add('open');
+}
+
+function closeVEdit(){ document.getElementById('vedit').classList.remove('open'); editingDay=null; }
+
+function previewVideo(){
+  const url = document.getElementById('vedit-url').value.trim();
+  const p = document.getElementById('vedit-preview');
+  if(!url){ p.innerHTML='<div class="preview-ph">AUCUN LIEN</div>'; return; }
+  const gd = (url.match(/drive\.google\.com\/file\/d\/([^/?&#]+)/)||[])[1];
+  if(gd){ p.innerHTML=`<iframe src="https://drive.google.com/file/d/${gd}/preview" allowfullscreen></iframe>`; return; }
+  const yt = (url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)||[])[1];
+  if(yt){ p.innerHTML=`<iframe src="https://www.youtube.com/embed/${yt}" allowfullscreen></iframe>`; return; }
+  p.innerHTML=`<video src="${url}" controls style="position:absolute;inset:0;width:100%;height:100%;"></video>`;
+}
+
+function saveVideo(){
+  if(editingDay===null) return;
+  const url = document.getElementById('vedit-url').value.trim();
+  if(url) localStorage.setItem(vKey(editingDay), url);
+  else localStorage.removeItem(vKey(editingDay));
+  closeVEdit();
+  buildVAdmin();
+  updateStats();
+  toast('✦ JOUR '+editingDay+' SAUVEGARDÉ ✦');
+}
+
+function deleteVideo(){
+  if(editingDay===null) return;
+  if(!confirm('Supprimer la vidéo du jour '+editingDay+' ?')) return;
+  localStorage.removeItem(vKey(editingDay));
+  closeVEdit();
+  buildVAdmin();
+  updateStats();
+  toast('✦ VIDÉO SUPPRIMÉE ✦');
+}
+
+document.getElementById('vedit').addEventListener('click', e=>{ if(e.target===document.getElementById('vedit')) closeVEdit(); });
+
+/* ===== MUSIC ===== */
+function importMusic(input){
+  const files = Array.from(input.files);
+  let n = mCount();
+  files.forEach(f=>{
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const track = { name: f.name.replace(/\.[^/.]+$/,''), file: f.name, src: e.target.result, dur: '--:--' };
+      localStorage.setItem(mKey(n), JSON.stringify(track));
+      n++; setCount(n);
+      buildMusicList(); updateStats();
+    };
+    reader.readAsDataURL(f);
+  });
+  input.value = '';
+  toast('✦ MUSIQUE(S) IMPORTÉE(S) ✦');
+}
+
+function buildMusicList(){
+  const l = document.getElementById('music-list');
+  const n = mCount();
+  if(!n){
+    l.innerHTML = '<p style="font-family:\'Press Start 2P\',monospace;font-size:.5rem;color:rgba(79,70,229,.4);text-align:center;padding:1.5rem;line-height:2;">AUCUNE MUSIQUE IMPORTÉE</p>';
+    return;
+  }
+  let html = '';
+  for(let i=0;i<n;i++){
+    const t = JSON.parse(localStorage.getItem(mKey(i))||'null');
+    if(!t) continue;
+    html += `
+      <div class="m-item">
+        <span class="m-num">${String(i+1).padStart(2,'0')}</span>
+        <div class="m-info">
+          <p class="m-name">${esc(t.name)}</p>
+          <p class="m-file">${esc(t.file)}</p>
+        </div>
+        ${i>0?`<button class="m-move" onclick="moveTrack(${i},-1)" title="Monter">▲</button>`:''}
+        ${i<n-1?`<button class="m-move" onclick="moveTrack(${i},1)" title="Descendre">▼</button>`:''}
+        <button class="m-del" onclick="deleteTrack(${i})">✕</button>
+      </div>
+    `;
+  }
+  l.innerHTML = html;
+}
+
+function moveTrack(i, dir){
+  const j = i + dir;
+  const n = mCount();
+  if(j<0||j>=n) return;
+  const a = JSON.parse(localStorage.getItem(mKey(i)));
+  const b = JSON.parse(localStorage.getItem(mKey(j)));
+  localStorage.setItem(mKey(i), JSON.stringify(b));
+  localStorage.setItem(mKey(j), JSON.stringify(a));
+  buildMusicList();
+  toast('✦ ORDRE MIS À JOUR ✦');
+}
+
+function deleteTrack(idx){
+  if(!confirm('Supprimer cette piste ?')) return;
+  const n = mCount();
+  for(let i=idx;i<n-1;i++) localStorage.setItem(mKey(i), localStorage.getItem(mKey(i+1)));
+  localStorage.removeItem(mKey(n-1));
+  setCount(n-1);
+  buildMusicList(); updateStats();
+  toast('✦ PISTE SUPPRIMÉE ✦');
+}
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ===== WEEK LOCKS ===== */
+const WEEK_NAMES = [
+  'SEMAINE 1 — JOURS 1-7',
+  'SEMAINE 2 — JOURS 8-14',
+  'SEMAINE 3 — JOURS 15-21',
+  'SEMAINE 4 — JOURS 22-28',
+  'SEMAINE 5 — JOURS 29-35',
+  'SEMAINE 6 — JOURS 36-42',
+  'SEMAINE 7 — JOURS 43-49',
+  'SEMAINE 8 — JOURS 50-56',
+  'SEMAINE 9 — JOURS 57-63',
+  'SEMAINE 10 — JOURS 64-70',
+  'SEMAINE 11 — JOURS 71-77',
+  'SEMAINE 12 — JOURS 78-84',
+  'BONUS — JOURS 85-86',
+];
+const WEEK_DAYS = [
+  'Jours 1 à 7','Jours 8 à 14','Jours 15 à 21','Jours 22 à 28',
+  'Jours 29 à 35','Jours 36 à 42','Jours 43 à 49','Jours 50 à 56',
+  'Jours 57 à 63','Jours 64 à 70','Jours 71 à 77','Jours 78 à 84',
+  'Jours 85 et 86',
+];
+
+const wLockKey = w => 'week-unlocked-' + w;
+const isWeekUnlocked = w => localStorage.getItem(wLockKey(w)) === '1';
+const setWeekLock = (w, unlocked) => {
+  if(unlocked) localStorage.setItem(wLockKey(w), '1');
+  else localStorage.removeItem(wLockKey(w));
+};
+
+function buildWeekLocks(){
+  const g = document.getElementById('week-locks-grid');
+  g.innerHTML = '';
+  for(let w = 0; w < 13; w++){
+    const unlocked = isWeekUnlocked(w);
+    const card = document.createElement('div');
+    card.className = 'wlock-card' + (unlocked ? ' unlocked' : '');
+    card.id = 'wlock-card-' + w;
+    card.innerHTML = `
+      <span class="wlock-icon">${unlocked ? '🔓' : '🔒'}</span>
+      <div class="wlock-info">
+        <p class="wlock-name">${WEEK_NAMES[w]}</p>
+        <p class="wlock-days">${WEEK_DAYS[w]}</p>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">${unlocked ? 'OUVERT' : 'FERMÉ'}</span>
+        <label class="toggle">
+          <input type="checkbox" ${unlocked ? 'checked' : ''} onchange="toggleWeek(${w}, this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    `;
+    g.appendChild(card);
+  }
+}
+
+function toggleWeek(w, unlocked){
+  setWeekLock(w, unlocked);
+  // update card UI
+  const card = document.getElementById('wlock-card-' + w);
+  if(card){
+    card.className = 'wlock-card' + (unlocked ? ' unlocked' : '');
+    card.querySelector('.wlock-icon').textContent = unlocked ? '🔓' : '🔒';
+    card.querySelector('.toggle-label').textContent = unlocked ? 'OUVERT' : 'FERMÉ';
+  }
+  toast(unlocked ? '✦ SEMAINE ' + (w+1) + ' DÉVERROUILLÉE ✦' : '✦ SEMAINE ' + (w+1) + ' VERROUILLÉE ✦');
+}
+
+function lockAll(){
+  for(let w = 0; w < 13; w++) setWeekLock(w, false);
+  buildWeekLocks();
+  toast('✦ TOUTES LES SEMAINES VERROUILLÉES ✦');
+}
+
+function unlockAll(){
+  for(let w = 0; w < 13; w++) setWeekLock(w, true);
+  buildWeekLocks();
+  toast('✦ TOUTES LES SEMAINES DÉVERROUILLÉES ✦');
+}
+
+/* ===== TOAST ===== */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
