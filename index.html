@@ -597,6 +597,15 @@ nav {
   line-height: 2;
 }
 
+.hint-box-music {
+  background: rgba(255,255,255,0.35);
+  border: 2px solid rgba(255,255,255,0.6);
+  padding: .65rem 1rem;
+  font-size: .78rem; font-weight: 700;
+  color: rgba(79,70,229,.7); line-height: 1.7;
+  margin-bottom: .5rem;
+}
+
 /* ===== RESPONSIVE ===== */
 @media(max-width:900px){
   .video-grid{grid-template-columns:repeat(4,1fr)}
@@ -627,7 +636,7 @@ nav {
 <div id="page-pw" class="page active">
   <div class="pw-box">
     <div class="pw-emoji-row">🌸</div>
-    <p class="pw-title">POUR TOI ✦</p>
+    <p class="pw-title">BON VOYAGE MON AMOUR ✦</p>
     <p class="pw-sub">Entre le code secret pour accéder à<br>ton aventure nippone 🗾</p>
     <input type="password" id="pw-input" class="pw-input" placeholder="••••••••" autocomplete="off" />
     <button class="pw-btn" onclick="checkPw()">► ENTRER ◄</button>
@@ -672,17 +681,19 @@ nav {
           <p class="track-sub" id="t-sub">Aucune piste chargée</p>
         </div>
       </div>
-      <input type="range" id="progress" class="progress-bar" min="0" max="100" value="0" step=".1" oninput="seekTo(this.value)"/>
-      <div class="time-row"><span id="t-cur">0:00</span><span id="t-tot">0:00</span></div>
-      <div class="ctrl-row">
-        <button class="ctrl" onclick="prevTrack()">⏮</button>
-        <button class="ctrl big" id="play-btn" onclick="togglePlay()">▶</button>
-        <button class="ctrl" onclick="nextTrack()">⏭</button>
+
+      <!-- iframe Drive player (hidden but active) -->
+      <div id="drive-player-wrap" style="display:none;width:100%;margin-bottom:0.75rem;">
+        <iframe id="drive-player" style="width:100%;height:56px;border:none;border-radius:0;" allow="autoplay" allowfullscreen></iframe>
       </div>
-      <div class="vol-row">
-        <span class="vol-icon">🔇</span>
-        <input type="range" id="vol" class="vol-bar" min="0" max="1" step=".01" value=".8" oninput="setVol(this.value)"/>
-        <span class="vol-icon">🔊</span>
+
+      <div class="hint-box-music" id="music-hint" style="display:none;">
+        🎵 Le lecteur Google Drive ci-dessus gère la lecture.<br>Utilise ⏮ ⏭ pour changer de piste.
+      </div>
+
+      <div class="ctrl-row" style="margin-top:0.75rem;">
+        <button class="ctrl" onclick="prevTrack()">⏮</button>
+        <button class="ctrl" onclick="nextTrack()">⏭</button>
       </div>
     </div>
 
@@ -711,9 +722,24 @@ nav {
   </div>
 </div>
 
-<audio id="ap"></audio>
+<script type="module">
+/* ====== FIREBASE ====== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-<script>
+// ↓↓↓ REMPLACE PAR TA CONFIG FIREBASE ↓↓↓
+const firebaseConfig = {
+  apiKey: "AIzaSyDG_G-fPvJ3W68ZDOpUmvaKijM3j4NYs-M",
+  authDomain: "ton-japon.firebaseapp.com",
+  databaseURL: "https://ton-japon-default-rtdb.firebaseio.com",
+  projectId: "ton-japon",
+  storageBucket: "ton-japon.firebasestorage.app",
+  messagingSenderId: "967271509627",
+  appId: "1:967271509627:web:8923589ddce7b96a87bcde"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
 /* ====== CONFIG ====== */
 const PASSWORD = "julieanneawenzer291224";
 
@@ -724,11 +750,25 @@ function checkPw(){
   const v = document.getElementById('pw-input').value.trim();
   const e = document.getElementById('pw-err');
   if(v === PASSWORD){
-    document.getElementById('page-pw').classList.remove('active');
-    document.getElementById('main-nav').style.display = 'flex';
-    goPage('videos');
-    buildGrid();
-    loadTracks();
+    e.textContent = '';
+    document.getElementById('pw-input').disabled = true;
+    document.querySelector('.pw-btn').textContent = '⏳ CHARGEMENT...';
+    loadAllData(() => {
+      document.getElementById('page-pw').classList.remove('active');
+      document.getElementById('main-nav').style.display = 'flex';
+      goPage('videos');
+      buildGrid();
+      loadTracks();
+      // écoute les mises à jour en temps réel
+      onValue(ref(db, '/'), snap => {
+        const d = snap.val() || {};
+        DB.videos = d.videos || {};
+        DB.music  = d.music  ? Object.values(d.music) : [];
+        DB.weeks  = d.weeks  || {};
+        buildGrid();
+        loadTracks();
+      });
+    });
   } else {
     e.textContent = "✕ MOT DE PASSE INCORRECT";
     e.style.animation = 'none';
@@ -750,13 +790,20 @@ function goPage(id, btn){
   if(id==='music') renderList();
 }
 
-/* ====== STORAGE KEYS ====== */
-const vKey = d => 'v2-url-' + d;
-const vUnlock = d => 'v2-lock-' + d;
-const mKey = i => 'music-' + i;
-const mCount = () => parseInt(localStorage.getItem('music-count')||'0');
-const wLockKey = w => 'week-unlocked-' + w;
-const isWeekUnlocked = w => localStorage.getItem(wLockKey(w)) === '1';
+/* ====== DATA (Firebase) ====== */
+let DB = { videos: {}, music: [], weeks: {} }; // cache local
+
+function loadAllData(callback){
+  get(ref(db, '/')).then(snap => {
+    const d = snap.val() || {};
+    DB.videos = d.videos || {};
+    DB.music  = d.music  ? Object.values(d.music) : [];
+    DB.weeks  = d.weeks  || {};
+    if(callback) callback();
+  });
+}
+
+function isWeekUnlocked(w){ return DB.weeks['w'+w] === true; }
 
 /* ====== VIDEO GRID — by week ====== */
 function buildGrid(){
@@ -803,7 +850,7 @@ function buildGrid(){
     grid.className = 'video-grid';
 
     for(let d = startDay; d <= endDay; d++){
-      const url   = weekUnlocked ? (localStorage.getItem(vKey(d))||'') : '';
+      const url   = weekUnlocked ? (DB.videos['d'+d] || '') : '';
       if(url) cnt++;
       const emoji = EMOJIS[d-1]||'🌸';
       const card  = document.createElement('div');
@@ -845,7 +892,7 @@ function buildGrid(){
 let currentModal = null;
 function openModal(d){
   currentModal = d;
-  const url = localStorage.getItem(vKey(d))||'';
+  const url = DB.videos['d'+d] || '';
   const emoji = EMOJIS[d-1]||'🌸';
   document.getElementById('modal-title').textContent = emoji + ' JOUR ' + String(d).padStart(2,'0') + ' ✦';
   renderFrame(url);
@@ -880,16 +927,15 @@ function renderFrame(url){
 document.getElementById('vmodal').addEventListener('click', e=>{ if(e.target===document.getElementById('vmodal')) closeModal(); });
 
 /* ====== MUSIC ====== */
-const audio = document.getElementById('ap');
-let tracks = [], cur = -1, playing = false;
+let tracks = [], cur = -1;
+
+function getGdriveId(url){
+  const m = (url||'').match(/drive\.google\.com\/file\/d\/([^/?&#]+)/);
+  return m ? m[1] : null;
+}
 
 function loadTracks(){
-  tracks = [];
-  const n = mCount();
-  for(let i = 0; i < n; i++){
-    const t = JSON.parse(localStorage.getItem(mKey(i))||'null');
-    if(t) tracks.push(t);
-  }
+  tracks = DB.music || [];
   renderList();
   if(tracks.length > 0 && cur === -1) loadTrack(0);
 }
@@ -901,14 +947,12 @@ function renderList(){
     return;
   }
   l.innerHTML = tracks.map((t,i) => `
-    <div class="t-item ${i===cur?'playing':''}" onclick="loadTrack(${i});startPlay()">
+    <div class="t-item ${i===cur?'playing':''}" onclick="loadTrack(${i})">
       <span class="t-num">${String(i+1).padStart(2,'0')}</span>
       <div class="t-info">
         <p class="t-name">${esc(t.name)}</p>
-        <p class="t-file">${esc(t.file)}</p>
       </div>
       <div class="eq"><div class="eq-b" style="height:5px"></div><div class="eq-b" style="height:11px"></div><div class="eq-b" style="height:4px"></div></div>
-      <span class="t-dur">${t.dur||'--:--'}</span>
     </div>
   `).join('');
 }
@@ -919,40 +963,34 @@ function loadTrack(i){
   if(i<0||i>=tracks.length) return;
   cur = i;
   const t = tracks[i];
-  audio.src = t.src;
+  const url = t.src || t.file || '';
+  const gid = getGdriveId(url);
+
   document.getElementById('t-title').textContent = t.name.toUpperCase();
   document.getElementById('t-sub').textContent = '✦ Playlist de ton voyage ✦';
-  renderList();
-}
-
-function startPlay(){
-  audio.play(); playing = true;
-  document.getElementById('play-btn').textContent = '⏸';
   document.getElementById('vinyl').classList.add('spinning');
+
+  const wrap = document.getElementById('drive-player-wrap');
+  const hint = document.getElementById('music-hint');
+  const iframe = document.getElementById('drive-player');
+
+  if(gid){
+    iframe.src = `https://drive.google.com/file/d/${gid}/preview`;
+    wrap.style.display = 'block';
+    hint.style.display = 'block';
+  } else {
+    // fallback: direct URL in an audio element inside the wrap
+    wrap.style.display = 'block';
+    hint.style.display = 'none';
+    iframe.src = '';
+    wrap.innerHTML = `<audio controls autoplay style="width:100%;" src="${url}"></audio>`;
+  }
+
   renderList();
 }
 
-function togglePlay(){
-  if(!tracks.length) return;
-  if(cur===-1) loadTrack(0);
-  if(audio.paused){ startPlay(); }
-  else { audio.pause(); playing=false; document.getElementById('play-btn').textContent='▶'; document.getElementById('vinyl').classList.remove('spinning'); }
-}
-
-function prevTrack(){ if(tracks.length){ loadTrack((cur-1+tracks.length)%tracks.length); if(playing) startPlay(); } }
-function nextTrack(){ if(tracks.length){ loadTrack((cur+1)%tracks.length); if(playing) startPlay(); } }
-
-audio.addEventListener('timeupdate', ()=>{
-  if(!audio.duration) return;
-  const p = (audio.currentTime/audio.duration)*100;
-  const bar = document.getElementById('progress');
-  bar.value = p; bar.style.setProperty('--prog', p+'%');
-  document.getElementById('t-cur').textContent = fmt(audio.currentTime);
-});
-audio.addEventListener('ended', nextTrack);
-function seekTo(v){ if(audio.duration) audio.currentTime=(v/100)*audio.duration; }
-function setVol(v){ audio.volume=parseFloat(v); }
-function fmt(s){ if(!s||isNaN(s)) return '0:00'; return Math.floor(s/60)+':'+(Math.floor(s%60)+'').padStart(2,'0'); }
+function prevTrack(){ if(tracks.length) loadTrack((cur - 1 + tracks.length) % tracks.length); }
+function nextTrack(){ if(tracks.length) loadTrack((cur + 1) % tracks.length); }
 </script>
 </body>
 </html>

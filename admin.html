@@ -459,13 +459,17 @@ body{
   <!-- TAB MUSIC -->
   <div id="tab-music" class="tab-content">
     <div class="panel">
-      <p class="panel-title">IMPORTER DES MUSIQUES</p>
-      <div class="music-upload-zone" onclick="document.getElementById('music-input').click()">
-        <span>🎵</span>
-        <p>CLIQUE POUR IMPORTER<br>TES FICHIERS AUDIO</p>
-        <p style="font-size:.38rem;opacity:.6;margin-top:.4rem;">MP3 · WAV · OGG · FLAC · M4A</p>
+      <p class="panel-title">➕ AJOUTER UNE MUSIQUE</p>
+      <div class="hint-box" style="margin-bottom:1.2rem;">
+        📌 Sur Google Drive : upload ton fichier MP3, puis <strong>clic droit → Partager → Toute personne avec le lien</strong> et colle le lien ici.
       </div>
-      <input type="file" id="music-input" style="display:none" accept="audio/*" multiple onchange="importMusic(this)"/>
+      <label class="field-label">NOM DE LA PISTE</label>
+      <input type="text" id="music-name" class="field-input" placeholder="Ex : Tombe la neige — Adamo" />
+      <label class="field-label">LIEN GOOGLE DRIVE</label>
+      <input type="text" id="music-url" class="field-input" placeholder="https://drive.google.com/file/d/..." />
+      <div class="btn-row">
+        <button class="sm-btn" onclick="addTrackByUrl()">➕ AJOUTER</button>
+      </div>
     </div>
     <div class="panel">
       <p class="panel-title">TRACKLIST ACTUELLE</p>
@@ -498,29 +502,68 @@ body{
 <!-- Toast -->
 <div class="save-toast" id="toast">✦ SAUVEGARDÉ ✦</div>
 
-<script>
+<script type="module">
+/* ===== FIREBASE ===== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, get, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ↓↓↓ REMPLACE PAR TA CONFIG FIREBASE (identique à index.html) ↓↓↓
+const firebaseConfig = {
+  apiKey: "AIzaSyDG_G-fPvJ3W68ZDOpUmvaKijM3j4NYs-M",
+  authDomain: "ton-japon.firebaseapp.com",
+  databaseURL: "https://ton-japon-default-rtdb.firebaseio.com",
+  projectId: "ton-japon",
+  storageBucket: "ton-japon.firebasestorage.app",
+  messagingSenderId: "967271509627",
+  appId: "1:967271509627:web:8923589ddce7b96a87bcde"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
 /* ===== CONFIG ===== */
-const ADMIN_PW = "julieanneawenzer291224";
+const ADMIN_PW = "awenzer29GM";
 
 const EMOJIS = ["🌸","🗼","⛩️","🍜","🌺","🎌","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","⛩️","🍱","🌺","🎌","💖","🗾","🌙","🍡","🦊","🌊","🌸","🗼","🎌","🍜","🌺","⛩️","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","🌸","🗾","⛩️","🍜","🌺","🎌","🌙","💫","🦊","🍡","🎎","🌊","🏔️","🍣","✨","🌷","🎋","🦋","🏯","⛩️","🍱","🌺","🎌","💖","🗾","🌙","🍡","🦊","🌊","🌸","🗼","⛩️","🍜","🌺","🎌","🌙","💫","🦊"];
 
-/* ===== STORAGE ===== */
-const vKey  = d => 'v2-url-' + d;
-const mKey  = i => 'music-' + i;
-const mCount = () => parseInt(localStorage.getItem('music-count')||'0');
-const setCount = n => localStorage.setItem('music-count', n);
+/* ===== DATA CACHE ===== */
+let DB = { videos: {}, music: [], weeks: {} };
+
+function loadAll(cb){
+  get(ref(db, '/')).then(snap => {
+    const d = snap.val() || {};
+    DB.videos = d.videos || {};
+    DB.music  = d.music  ? Object.values(d.music) : [];
+    DB.weeks  = d.weeks  || {};
+    if(cb) cb();
+  });
+}
 
 /* ===== LOGIN ===== */
 function adminLogin(){
   const v = document.getElementById('adm-pw').value.trim();
   const e = document.getElementById('adm-err');
   if(v === ADMIN_PW){
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('admin-main').style.display = 'block';
-    buildVAdmin();
-    buildMusicList();
-    buildWeekLocks();
-    updateStats();
+    document.getElementById('adm-pw').disabled = true;
+    document.querySelector('.big-btn').textContent = '⏳ CHARGEMENT...';
+    loadAll(() => {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-main').style.display = 'block';
+      buildVAdmin();
+      buildMusicList();
+      buildWeekLocks();
+      updateStats();
+      // temps réel
+      onValue(ref(db, '/'), snap => {
+        const d = snap.val() || {};
+        DB.videos = d.videos || {};
+        DB.music  = d.music  ? Object.values(d.music) : [];
+        DB.weeks  = d.weeks  || {};
+        buildVAdmin();
+        buildMusicList();
+        buildWeekLocks();
+        updateStats();
+      });
+    });
   } else {
     e.textContent = '✕ MOT DE PASSE INCORRECT';
     e.style.animation = 'none';
@@ -529,12 +572,16 @@ function adminLogin(){
   }
 }
 document.getElementById('adm-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') adminLogin(); });
+window.adminLogin = adminLogin;
 
 function signOut(){
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('admin-main').style.display = 'none';
   document.getElementById('adm-pw').value = '';
+  document.getElementById('adm-pw').disabled = false;
+  document.querySelector('.big-btn').textContent = '► CONNEXION';
 }
+window.signOut = signOut;
 
 /* ===== TABS ===== */
 function switchTab(id, btn){
@@ -544,12 +591,12 @@ function switchTab(id, btn){
   btn.classList.add('active');
   if(id === 'weeks') buildWeekLocks();
 }
+window.switchTab = switchTab;
 
 /* ===== STATS ===== */
 function updateStats(){
-  let filled = 0;
-  for(let d=1;d<=86;d++) if(localStorage.getItem(vKey(d))) filled++;
-  const n = mCount();
+  const filled = Object.values(DB.videos).filter(Boolean).length;
+  const n = DB.music.length;
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-chip">🎬 VIDÉOS : ${filled}/86</div>
     <div class="stat-chip">🎵 MUSIQUES : ${n}</div>
@@ -567,13 +614,16 @@ function setFilter(f){
   document.getElementById('fbtn-'+f).classList.add('on');
   buildVAdmin();
 }
+window.setFilter = setFilter;
+
 function filterGrid(){ vSearch = document.getElementById('search-input').value.trim(); buildVAdmin(); }
+window.filterGrid = filterGrid;
 
 function buildVAdmin(){
   const g = document.getElementById('vadmin-grid');
   g.innerHTML = '';
   for(let d=1;d<=86;d++){
-    const url = localStorage.getItem(vKey(d))||'';
+    const url = DB.videos['d'+d] || '';
     const filled = !!url;
     const emoji = EMOJIS[d-1]||'🌸';
     const label = String(d).padStart(2,'0');
@@ -599,14 +649,16 @@ let editingDay = null;
 function openVEdit(d){
   editingDay = d;
   const emoji = EMOJIS[d-1]||'🌸';
-  const url = localStorage.getItem(vKey(d))||'';
+  const url = DB.videos['d'+d] || '';
   document.getElementById('vedit-title').textContent = emoji+' JOUR '+String(d).padStart(2,'0')+' ✦';
   document.getElementById('vedit-url').value = url;
   document.getElementById('vedit-preview').innerHTML = '<div class="preview-ph">APERÇU</div>';
   document.getElementById('vedit').classList.add('open');
 }
+window.openVEdit = openVEdit;
 
 function closeVEdit(){ document.getElementById('vedit').classList.remove('open'); editingDay=null; }
+window.closeVEdit = closeVEdit;
 
 function previewVideo(){
   const url = document.getElementById('vedit-url').value.trim();
@@ -618,113 +670,100 @@ function previewVideo(){
   if(yt){ p.innerHTML=`<iframe src="https://www.youtube.com/embed/${yt}" allowfullscreen></iframe>`; return; }
   p.innerHTML=`<video src="${url}" controls style="position:absolute;inset:0;width:100%;height:100%;"></video>`;
 }
+window.previewVideo = previewVideo;
 
 function saveVideo(){
   if(editingDay===null) return;
   const url = document.getElementById('vedit-url').value.trim();
-  if(url) localStorage.setItem(vKey(editingDay), url);
-  else localStorage.removeItem(vKey(editingDay));
-  closeVEdit();
-  buildVAdmin();
-  updateStats();
-  toast('✦ JOUR '+editingDay+' SAUVEGARDÉ ✦');
+  const p = url ? set(ref(db, 'videos/d'+editingDay), url) : remove(ref(db, 'videos/d'+editingDay));
+  p.then(()=>{
+    if(url) DB.videos['d'+editingDay] = url; else delete DB.videos['d'+editingDay];
+    closeVEdit(); buildVAdmin(); updateStats();
+    toast('✦ JOUR '+editingDay+' SAUVEGARDÉ ✦');
+  });
 }
+window.saveVideo = saveVideo;
 
 function deleteVideo(){
   if(editingDay===null) return;
   if(!confirm('Supprimer la vidéo du jour '+editingDay+' ?')) return;
-  localStorage.removeItem(vKey(editingDay));
-  closeVEdit();
-  buildVAdmin();
-  updateStats();
-  toast('✦ VIDÉO SUPPRIMÉE ✦');
+  remove(ref(db, 'videos/d'+editingDay)).then(()=>{
+    delete DB.videos['d'+editingDay];
+    closeVEdit(); buildVAdmin(); updateStats();
+    toast('✦ VIDÉO SUPPRIMÉE ✦');
+  });
 }
+window.deleteVideo = deleteVideo;
 
 document.getElementById('vedit').addEventListener('click', e=>{ if(e.target===document.getElementById('vedit')) closeVEdit(); });
 
 /* ===== MUSIC ===== */
-function importMusic(input){
-  const files = Array.from(input.files);
-  let n = mCount();
-  files.forEach(f=>{
-    const reader = new FileReader();
-    reader.onload = e=>{
-      const track = { name: f.name.replace(/\.[^/.]+$/,''), file: f.name, src: e.target.result, dur: '--:--' };
-      localStorage.setItem(mKey(n), JSON.stringify(track));
-      n++; setCount(n);
-      buildMusicList(); updateStats();
-    };
-    reader.readAsDataURL(f);
+function addTrackByUrl(){
+  const name = document.getElementById('music-name').value.trim();
+  const url  = document.getElementById('music-url').value.trim();
+  if(!name){ toast('✕ ENTRE UN NOM DE PISTE'); return; }
+  if(!url){  toast('✕ ENTRE UN LIEN GOOGLE DRIVE'); return; }
+  const newTrack = { name, file: url };
+  const newList = [...DB.music, newTrack];
+  set(ref(db, 'music'), newList).then(()=>{
+    DB.music = newList;
+    document.getElementById('music-name').value = '';
+    document.getElementById('music-url').value = '';
+    buildMusicList(); updateStats();
+    toast('✦ PISTE AJOUTÉE ✦');
   });
-  input.value = '';
-  toast('✦ MUSIQUE(S) IMPORTÉE(S) ✦');
 }
+window.addTrackByUrl = addTrackByUrl;
 
 function buildMusicList(){
   const l = document.getElementById('music-list');
-  const n = mCount();
-  if(!n){
-    l.innerHTML = '<p style="font-family:\'Press Start 2P\',monospace;font-size:.5rem;color:rgba(79,70,229,.4);text-align:center;padding:1.5rem;line-height:2;">AUCUNE MUSIQUE IMPORTÉE</p>';
+  if(!DB.music.length){
+    l.innerHTML = '<p style="font-family:\'Press Start 2P\',monospace;font-size:.5rem;color:rgba(79,70,229,.4);text-align:center;padding:1.5rem;line-height:2;">AUCUNE MUSIQUE AJOUTÉE</p>';
     return;
   }
   let html = '';
-  for(let i=0;i<n;i++){
-    const t = JSON.parse(localStorage.getItem(mKey(i))||'null');
-    if(!t) continue;
+  DB.music.forEach((t,i) => {
+    const shortLink = (t.file||'').length > 40 ? (t.file||'').slice(0,40)+'…' : (t.file||'');
     html += `
       <div class="m-item">
         <span class="m-num">${String(i+1).padStart(2,'0')}</span>
         <div class="m-info">
           <p class="m-name">${esc(t.name)}</p>
-          <p class="m-file">${esc(t.file)}</p>
+          <p class="m-file" title="${esc(t.file||'')}">${esc(shortLink)}</p>
         </div>
         ${i>0?`<button class="m-move" onclick="moveTrack(${i},-1)" title="Monter">▲</button>`:''}
-        ${i<n-1?`<button class="m-move" onclick="moveTrack(${i},1)" title="Descendre">▼</button>`:''}
+        ${i<DB.music.length-1?`<button class="m-move" onclick="moveTrack(${i},1)" title="Descendre">▼</button>`:''}
         <button class="m-del" onclick="deleteTrack(${i})">✕</button>
       </div>
     `;
-  }
+  });
   l.innerHTML = html;
 }
 
 function moveTrack(i, dir){
   const j = i + dir;
-  const n = mCount();
-  if(j<0||j>=n) return;
-  const a = JSON.parse(localStorage.getItem(mKey(i)));
-  const b = JSON.parse(localStorage.getItem(mKey(j)));
-  localStorage.setItem(mKey(i), JSON.stringify(b));
-  localStorage.setItem(mKey(j), JSON.stringify(a));
-  buildMusicList();
-  toast('✦ ORDRE MIS À JOUR ✦');
+  if(j<0||j>=DB.music.length) return;
+  const list = [...DB.music];
+  [list[i], list[j]] = [list[j], list[i]];
+  set(ref(db, 'music'), list).then(()=>{ DB.music=list; buildMusicList(); toast('✦ ORDRE MIS À JOUR ✦'); });
 }
+window.moveTrack = moveTrack;
 
 function deleteTrack(idx){
   if(!confirm('Supprimer cette piste ?')) return;
-  const n = mCount();
-  for(let i=idx;i<n-1;i++) localStorage.setItem(mKey(i), localStorage.getItem(mKey(i+1)));
-  localStorage.removeItem(mKey(n-1));
-  setCount(n-1);
-  buildMusicList(); updateStats();
-  toast('✦ PISTE SUPPRIMÉE ✦');
+  const list = DB.music.filter((_,i)=>i!==idx);
+  set(ref(db, 'music'), list).then(()=>{ DB.music=list; buildMusicList(); updateStats(); toast('✦ PISTE SUPPRIMÉE ✦'); });
 }
+window.deleteTrack = deleteTrack;
 
-function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ===== WEEK LOCKS ===== */
 const WEEK_NAMES = [
-  'SEMAINE 1 — JOURS 1-7',
-  'SEMAINE 2 — JOURS 8-14',
-  'SEMAINE 3 — JOURS 15-21',
-  'SEMAINE 4 — JOURS 22-28',
-  'SEMAINE 5 — JOURS 29-35',
-  'SEMAINE 6 — JOURS 36-42',
-  'SEMAINE 7 — JOURS 43-49',
-  'SEMAINE 8 — JOURS 50-56',
-  'SEMAINE 9 — JOURS 57-63',
-  'SEMAINE 10 — JOURS 64-70',
-  'SEMAINE 11 — JOURS 71-77',
-  'SEMAINE 12 — JOURS 78-84',
+  'SEMAINE 1 — JOURS 1-7','SEMAINE 2 — JOURS 8-14','SEMAINE 3 — JOURS 15-21',
+  'SEMAINE 4 — JOURS 22-28','SEMAINE 5 — JOURS 29-35','SEMAINE 6 — JOURS 36-42',
+  'SEMAINE 7 — JOURS 43-49','SEMAINE 8 — JOURS 50-56','SEMAINE 9 — JOURS 57-63',
+  'SEMAINE 10 — JOURS 64-70','SEMAINE 11 — JOURS 71-77','SEMAINE 12 — JOURS 78-84',
   'BONUS — JOURS 85-86',
 ];
 const WEEK_DAYS = [
@@ -734,18 +773,11 @@ const WEEK_DAYS = [
   'Jours 85 et 86',
 ];
 
-const wLockKey = w => 'week-unlocked-' + w;
-const isWeekUnlocked = w => localStorage.getItem(wLockKey(w)) === '1';
-const setWeekLock = (w, unlocked) => {
-  if(unlocked) localStorage.setItem(wLockKey(w), '1');
-  else localStorage.removeItem(wLockKey(w));
-};
-
 function buildWeekLocks(){
   const g = document.getElementById('week-locks-grid');
   g.innerHTML = '';
   for(let w = 0; w < 13; w++){
-    const unlocked = isWeekUnlocked(w);
+    const unlocked = DB.weeks['w'+w] === true;
     const card = document.createElement('div');
     card.className = 'wlock-card' + (unlocked ? ' unlocked' : '');
     card.id = 'wlock-card-' + w;
@@ -768,28 +800,27 @@ function buildWeekLocks(){
 }
 
 function toggleWeek(w, unlocked){
-  setWeekLock(w, unlocked);
-  // update card UI
-  const card = document.getElementById('wlock-card-' + w);
-  if(card){
-    card.className = 'wlock-card' + (unlocked ? ' unlocked' : '');
-    card.querySelector('.wlock-icon').textContent = unlocked ? '🔓' : '🔒';
-    card.querySelector('.toggle-label').textContent = unlocked ? 'OUVERT' : 'FERMÉ';
-  }
-  toast(unlocked ? '✦ SEMAINE ' + (w+1) + ' DÉVERROUILLÉE ✦' : '✦ SEMAINE ' + (w+1) + ' VERROUILLÉE ✦');
+  const p = unlocked ? set(ref(db, 'weeks/w'+w), true) : remove(ref(db, 'weeks/w'+w));
+  p.then(()=>{
+    if(unlocked) DB.weeks['w'+w]=true; else delete DB.weeks['w'+w];
+    buildWeekLocks();
+    toast(unlocked ? '✦ SEMAINE '+(w+1)+' DÉVERROUILLÉE ✦' : '✦ SEMAINE '+(w+1)+' VERROUILLÉE ✦');
+  });
 }
+window.toggleWeek = toggleWeek;
 
 function lockAll(){
-  for(let w = 0; w < 13; w++) setWeekLock(w, false);
-  buildWeekLocks();
-  toast('✦ TOUTES LES SEMAINES VERROUILLÉES ✦');
+  const weeks = {};
+  set(ref(db, 'weeks'), weeks).then(()=>{ DB.weeks={}; buildWeekLocks(); toast('✦ TOUTES VERROUILLÉES ✦'); });
 }
+window.lockAll = lockAll;
 
 function unlockAll(){
-  for(let w = 0; w < 13; w++) setWeekLock(w, true);
-  buildWeekLocks();
-  toast('✦ TOUTES LES SEMAINES DÉVERROUILLÉES ✦');
+  const weeks = {};
+  for(let w=0;w<13;w++) weeks['w'+w]=true;
+  set(ref(db, 'weeks'), weeks).then(()=>{ DB.weeks=weeks; buildWeekLocks(); toast('✦ TOUTES DÉVERROUILLÉES ✦'); });
 }
+window.unlockAll = unlockAll;
 
 /* ===== TOAST ===== */
 function toast(msg){
