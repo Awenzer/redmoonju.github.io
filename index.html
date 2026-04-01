@@ -722,12 +722,10 @@ nav {
   </div>
 </div>
 
-<script type="module">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
 /* ====== FIREBASE ====== */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-// ↓↓↓ REMPLACE PAR TA CONFIG FIREBASE ↓↓↓
 const firebaseConfig = {
   apiKey: "AIzaSyDG_G-fPvJ3W68ZDOpUmvaKijM3j4NYs-M",
   authDomain: "ton-japon.firebaseapp.com",
@@ -737,8 +735,8 @@ const firebaseConfig = {
   messagingSenderId: "967271509627",
   appId: "1:967271509627:web:8923589ddce7b96a87bcde"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 /* ====== CONFIG ====== */
 const PASSWORD = "julieanneawenzer291224";
@@ -760,7 +758,7 @@ function checkPw(){
       buildGrid();
       loadTracks();
       // écoute les mises à jour en temps réel
-      onValue(ref(db, '/'), snap => {
+      db.ref('/').on('value', snap => {
         const d = snap.val() || {};
         DB.videos = d.videos || {};
         DB.music  = d.music  ? Object.values(d.music) : [];
@@ -791,10 +789,10 @@ function goPage(id, btn){
 }
 
 /* ====== DATA (Firebase) ====== */
-let DB = { videos: {}, music: [], weeks: {} }; // cache local
+let DB = { videos: {}, music: [], weeks: {} };
 
 function loadAllData(callback){
-  get(ref(db, '/')).then(snap => {
+  db.ref('/').get().then(snap => {
     const d = snap.val() || {};
     DB.videos = d.videos || {};
     DB.music  = d.music  ? Object.values(d.music) : [];
